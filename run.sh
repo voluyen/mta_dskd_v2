@@ -117,17 +117,44 @@ if [[ "${SKIP_DOWNLOAD}" != "1" ]]; then
 
     # All student / teacher checkpoints used here are public — no login needed.
 
+    # Args: <hf_id> <type_subdir> <name_subdir> [--all]
+    # By default, skip ONNX/TFLite/TF/Flax/Rust/GGUF/OpenVINO/Core ML weights.
+    # Pass --all to download every file in the repo (e.g. for tinyllama).
     download_model() {
         local hf_id="$1"
         local target="${PROJECT_ROOT}/model_hub/$2/$3"
+        local mode="${4:-filtered}"
         if [[ -f "${target}/config.json" ]]; then
             log "  ✓ already present: ${target}"
             return 0
         fi
-        log "  ↓ downloading ${hf_id} → ${target}"
         mkdir -p "${target}"
-        # </dev/null prevents the "Do you want to update now?" prompt from blocking.
-        "${HF_CLI[@]}" download "${hf_id}" --local-dir "${target}" </dev/null
+
+        if [[ "${mode}" == "--all" ]]; then
+            log "  ↓ downloading ${hf_id} → ${target}  (full repo, no excludes)"
+            # </dev/null prevents the "Do you want to update now?" prompt from blocking.
+            "${HF_CLI[@]}" download "${hf_id}" --local-dir "${target}" </dev/null
+            return
+        fi
+
+        log "  ↓ downloading ${hf_id} → ${target}  (PyTorch weights + tokenizer only)"
+        "${HF_CLI[@]}" download "${hf_id}" --local-dir "${target}" \
+            --exclude "*.onnx" "*.onnx_data" "onnx/*" \
+            --exclude "*.tflite" "*tflite*" \
+            --exclude "*.msgpack" "flax_model*" \
+            --exclude "tf_model*" "*.h5" \
+            --exclude "rust_model*" "*.ot" \
+            --exclude "*.gguf" "*.ggml" \
+            --exclude "openvino/*" "*.xml" "*.bin.openvino" \
+            --exclude "coreml/*" "*.mlmodel" "*.mlpackage" \
+            --exclude "*.msgpack" "*.npz" \
+            </dev/null
+
+        # If both safetensors and pytorch_model.bin were downloaded, drop the
+        # legacy .bin to save disk (transformers prefers safetensors).
+        if compgen -G "${target}/*.safetensors" >/dev/null 2>&1; then
+            find "${target}" -maxdepth 2 -name 'pytorch_model*.bin' -delete 2>/dev/null || true
+        fi
     }
 
     # Student checkpoints referenced by scripts/dolly/*/run_*.sh
@@ -135,7 +162,7 @@ if [[ "${SKIP_DOWNLOAD}" != "1" ]]; then
     download_model "gpt2-medium"               gpt2      gpt2-medium
     download_model "gpt2-xl"                   gpt2      gpt2-xl
     download_model "facebook/opt-2.7b"         opt       opt-2.7b
-    download_model "TinyLlama/TinyLlama_v1.1"  tinyllama tinyllama_v1.1
+    download_model "TinyLlama/TinyLlama_v1.1"  tinyllama tinyllama_v1.1  --all
 
     log "Pre-warming teacher tokenizers (optional, speeds up first run)"
     python - <<'PY' || true
