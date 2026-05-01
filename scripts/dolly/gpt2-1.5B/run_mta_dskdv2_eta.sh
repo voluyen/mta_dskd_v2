@@ -37,6 +37,10 @@ KD_TEMP=2.0
 # distiller
 PROJECTOR_LR=0.0001
 TOPK_VOCAB=-1
+# LoRA
+LORA_R=256
+LORA_ALPHA=8
+LORA_DROPOUT=0.1
 # length
 MAX_LENGTH=512
 # runtime
@@ -87,6 +91,11 @@ OPTS+=" --init-t2s-projector"
 OPTS+=" --init-s2t-projector"
 OPTS+=" --projector-lr ${PROJECTOR_LR}"
 OPTS+=" --topk-vocab ${TOPK_VOCAB}"
+# peft
+OPTS+=" --peft lora"
+OPTS+=" --peft-lora-r ${LORA_R}"
+OPTS+=" --peft-lora-alpha ${LORA_ALPHA}"
+OPTS+=" --peft-lora-dropout ${LORA_DROPOUT}"
 # OPTS+=" --projector-path ${PROJECTOR_PATH}"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
