@@ -139,15 +139,26 @@ if [[ "${SKIP_DOWNLOAD}" != "1" ]]; then
 
         log "  ↓ downloading ${hf_id} → ${target}  (PyTorch weights + tokenizer only)"
         "${HF_CLI[@]}" download "${hf_id}" --local-dir "${target}" \
-            --exclude "*.onnx" "*.onnx_data" "onnx/*" \
-            --exclude "*.tflite" "*tflite*" \
-            --exclude "*.msgpack" "flax_model*" \
-            --exclude "tf_model*" "*.h5" \
-            --exclude "rust_model*" "*.ot" \
-            --exclude "*.gguf" "*.ggml" \
-            --exclude "openvino/*" "*.xml" "*.bin.openvino" \
-            --exclude "coreml/*" "*.mlmodel" "*.mlpackage" \
-            --exclude "*.msgpack" "*.npz" \
+            --exclude "*.onnx" \
+            --exclude "*.onnx_data" \
+            --exclude "onnx/*" \
+            --exclude "*.tflite" \
+            --exclude "*tflite*" \
+            --exclude "*.msgpack" \
+            --exclude "flax_model*" \
+            --exclude "tf_model*" \
+            --exclude "*.h5" \
+            --exclude "rust_model*" \
+            --exclude "*.ot" \
+            --exclude "*.gguf" \
+            --exclude "*.ggml" \
+            --exclude "openvino/*" \
+            --exclude "*.xml" \
+            --exclude "*.bin.openvino" \
+            --exclude "coreml/*" \
+            --exclude "*.mlmodel" \
+            --exclude "*.mlpackage" \
+            --exclude "*.npz" \
             </dev/null
 
         # If both safetensors and pytorch_model.bin were downloaded, drop the
