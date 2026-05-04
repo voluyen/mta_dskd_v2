@@ -127,6 +127,7 @@ OPTS+=" --teacher_layer_mapping 6 12 18 24"
 OPTS+=" --student_layer_mapping 2 4 6 8"
 OPTS+=" --split_layer_mapping 0 1 4 4"
 OPTS+=" --w-span-loss 2.0"
+OPTS+=" --entropy_weight"
 
 
 export NCCL_DEBUG=""

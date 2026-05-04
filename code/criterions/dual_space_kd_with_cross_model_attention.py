@@ -62,8 +62,8 @@ def compute_token_weights(hidden_state, attention_mask):
     token_weights = attn_weights.mean(dim=1).squeeze(0)  # [L]
     return token_weights.detach()
 
-def prepare_span_indices_and_weights(t_layer_weights, s_layer_weights, 
-                                     attention_mask, offsets_mapping, spans_offsets):
+def prepare_span_indices_and_weights(t_layer_weights, s_layer_weights, attention_mask, 
+                                     offsets_mapping, spans_offsets, w_t_entropy=None):
     device = attention_mask.device
     B_size, SeqLen = attention_mask.shape
 
@@ -141,11 +141,17 @@ def prepare_span_indices_and_weights(t_layer_weights, s_layer_weights,
 
     T_Token_Weights_all = gather_layer_weights(t_layer_weights)
     S_Token_Weights_all = gather_layer_weights(s_layer_weights)
+    if w_t_entropy is not None:
+        T_Entropy_Weight_all = gather_layer_weights(w_t_entropy.unsqueeze(0)).squeeze(0)
+    else:
+        T_Entropy_Weight_all = None
 
-    return All_Indices, T_Token_Weights_all, S_Token_Weights_all, Span_IDs, Max_Spans, Batch_ID_for_Spans
 
-def get_span_loss(projectors, attention_mask, s_hidden_states, t_hidden_states, 
-                  offsets_mapping, spans_offsets, teacher_layer_mapping, student_layer_mapping):
+    return (All_Indices, T_Token_Weights_all, S_Token_Weights_all, 
+            Span_IDs, Max_Spans, Batch_ID_for_Spans, T_Entropy_Weight_all)
+
+def get_span_loss(projectors, attention_mask, s_hidden_states, t_hidden_states, offsets_mapping, 
+                  spans_offsets, teacher_layer_mapping, student_layer_mapping, w_t_entropy=None):
     
     t_layer_weights = []
     s_layer_weights = []
@@ -159,16 +165,20 @@ def get_span_loss(projectors, attention_mask, s_hidden_states, t_hidden_states,
     t_layer_weights = torch.stack(t_layer_weights)  # (num_layers, B, SeqLen)
     s_layer_weights = torch.stack(s_layer_weights)  # (num_layers, B, SeqLen)
 
-    (All_Indices, T_Token_Weights_all, S_Token_Weights_all, 
-     Span_IDs, Max_Spans, Batch_ID_for_Spans) =  prepare_span_indices_and_weights(t_layer_weights, s_layer_weights, 
-                                                                                  attention_mask, offsets_mapping, spans_offsets)
+    (All_Indices, 
+     T_Token_Weights_all, 
+     S_Token_Weights_all, 
+     Span_IDs, Max_Spans, 
+     Batch_ID_for_Spans, 
+     T_Entropy_Weight_all) =  prepare_span_indices_and_weights(t_layer_weights, s_layer_weights, attention_mask, 
+                                                               offsets_mapping, spans_offsets, w_t_entropy)
     final_loss = 0.0
     for i, (s_idx, t_idx, projector) in enumerate(zip(student_layer_mapping, teacher_layer_mapping, projectors)):
         s_hidden = s_hidden_states[s_idx]
         t_hidden = t_hidden_states[t_idx]
-        span_loss = compute_hidden_span_loss(s_hidden, t_hidden, All_Indices,
+        span_loss = compute_hidden_span_loss(projector, s_hidden, t_hidden, All_Indices,
                                              S_Token_Weights_all[i], T_Token_Weights_all[i], 
-                                             Span_IDs, Max_Spans, Batch_ID_for_Spans)
+                                             Span_IDs, Max_Spans, Batch_ID_for_Spans, T_Entropy_Weight_all)
         final_loss += span_loss
 
     return final_loss
@@ -199,33 +209,43 @@ def get_token_loss(attention_mask, s_hidden_states, t_hidden_states,
     final_loss = final_loss / len(student_layer_mapping)
     return final_loss
 
-def compute_overall_span_loss(projectors, attention_mask, s_hidden_states, t_hidden_states, 
+def compute_overall_span_loss(projectors, attention_mask, s_logits, t_logits, s_hidden_states, t_hidden_states, 
                               offsets_mapping, spans_offsets, words_offsets, args):
     
+    w_t_entropy = None
+    if args.entropy_weight:
+        t_probs = torch.softmax(t_logits.float().detach(), dim=-1)
+        t_entropy = -(t_probs * torch.log(t_probs + 1e-8)).sum(dim=-1)
+        w_t_entropy = 1 - t_entropy / math.log(t_logits.size(-1))   # [0,1]
+
+
     s_word_mapping = args.student_layer_mapping[args.split_layer_mapping[0]:args.split_layer_mapping[1]]
     t_word_mapping = args.teacher_layer_mapping[args.split_layer_mapping[0]:args.split_layer_mapping[1]]
     word_projectors = projectors[args.split_layer_mapping[0]:args.split_layer_mapping[1]]
     word_loss = get_span_loss(word_projectors, attention_mask, s_hidden_states, t_hidden_states, 
-                              offsets_mapping, words_offsets, t_word_mapping, s_word_mapping)
+                              offsets_mapping, words_offsets, t_word_mapping, s_word_mapping, w_t_entropy)
     
     s_span_mapping = args.student_layer_mapping[args.split_layer_mapping[1]:args.split_layer_mapping[2]]
     t_span_mapping = args.teacher_layer_mapping[args.split_layer_mapping[1]:args.split_layer_mapping[2]]
     span_projectors = projectors[args.split_layer_mapping[1]:args.split_layer_mapping[2]]
     span_loss = get_span_loss(span_projectors, attention_mask, s_hidden_states, t_hidden_states, 
-                              offsets_mapping, spans_offsets, t_span_mapping, s_span_mapping)
+                              offsets_mapping, spans_offsets, t_span_mapping, s_span_mapping, w_t_entropy)
     
     overall_loss = (word_loss + span_loss) / len(args.student_layer_mapping)
     return overall_loss
 
-def compute_hidden_span_loss(s_hidden_state, t_hidden_state, All_Indices, 
-                             S_Token_Weights_all, T_Token_Weights_all, Span_IDs, Max_Spans, Batch_ID_for_Spans):
+def compute_hidden_span_loss(projector, s_hidden_state, t_hidden_state, All_Indices, 
+                             S_Token_Weights_all, T_Token_Weights_all, Span_IDs, 
+                             Max_Spans, Batch_ID_for_Spans, T_Entropy_Weight_all=None):
     D_hidden_s = s_hidden_state.size(-1)
     D_hidden_t = t_hidden_state.size(-1)
     device = t_hidden_state.device
+    B_size = s_hidden_state.size(0)
 
     T_Hidden_Flat = t_hidden_state.flatten(0, 1) # (B*SeqLen, D_hidden_t)
     S_Hidden_Flat = s_hidden_state.flatten(0, 1) # (B*SeqLen, D_hidden_s)
 
+    # 1. Trích xuất và Áp dụng Trọng số
     T_span_all = T_Hidden_Flat[All_Indices] # (T_total, D_hidden_t)
     S_span_all = S_Hidden_Flat[All_Indices] # (T_total, D_hidden_s)
     
@@ -242,6 +262,8 @@ def compute_hidden_span_loss(s_hidden_state, t_hidden_state, All_Indices,
     S_span_sum = torch.zeros(Max_Spans, D_hidden_s, device=device)
     T_Weight_sum_1d = torch.zeros(Max_Spans, device=device)
     S_Weight_sum_1d = torch.zeros(Max_Spans, device=device)
+    T_Entropy_Weight_sum_1d = torch.zeros(Max_Spans, device=device)
+
 
     T_span_sum.scatter_add_(0, Span_IDs_expanded_t, T_span_weighted)
     S_span_sum.scatter_add_(0, Span_IDs_expanded_s, S_span_weighted)
@@ -250,6 +272,8 @@ def compute_hidden_span_loss(s_hidden_state, t_hidden_state, All_Indices,
     T_Weight_sum = T_Weight_sum_1d.clamp(min=1e-5).unsqueeze(-1) # (Max_Spans, 1)
     S_Weight_sum_1d.scatter_add_(0, Span_IDs, S_Token_Weights_all)
     S_Weight_sum = S_Weight_sum_1d.clamp(min=1e-5).unsqueeze(-1) # (Max_Spans, 1)
+    if T_Entropy_Weight_all is not None:
+        T_Entropy_Weight_sum_1d.scatter_add_(0, Span_IDs, T_Entropy_Weight_all)
 
     # Tính Trung bình (Mean)
     T_span_hidden_mean = T_span_sum / T_Weight_sum 
@@ -269,13 +293,20 @@ def compute_hidden_span_loss(s_hidden_state, t_hidden_state, All_Indices,
     S_intra_batch_similarities_flat = torch.masked_select(S_Full_Sim_Matrix, Final_Mask)
     T_intra_batch_similarities_flat = torch.masked_select(T_Full_Sim_Matrix, Final_Mask)
 
-    Pair_Weights_Matrix = T_Weight_sum_1d.unsqueeze(1) * T_Weight_sum_1d.unsqueeze(0)
+    w_sum_1d = T_Entropy_Weight_sum_1d if T_Entropy_Weight_all is not None else T_Weight_sum_1d
+    Pair_Weights_Matrix = w_sum_1d.unsqueeze(1) * w_sum_1d.unsqueeze(0)
     Valid_Pair_Weights = torch.masked_select(Pair_Weights_Matrix, Final_Mask)
 
     span_loss = F.mse_loss(S_intra_batch_similarities_flat, T_intra_batch_similarities_flat, reduction='none')
     span_loss = (span_loss * Valid_Pair_Weights).sum() / Valid_Pair_Weights.sum().clamp(min=1e-5)
 
-    return span_loss
+    s_hidden_expand = projector(S_span_all)
+    token_cos = F.cosine_similarity(s_hidden_expand, T_span_all, dim=-1, eps=1e-5)
+    token_loss = 1 - token_cos
+    token_weight = T_Entropy_Weight_all if T_Entropy_Weight_all is not None else T_Token_Weights_all
+    token_loss = (token_loss * token_weight).sum() / token_weight.sum().clamp(min=1e-5)
+
+    return span_loss + token_loss / 10.0
 
 
 def filter_overlapping_spans(spans):
@@ -331,7 +362,7 @@ def get_spans_offsets(texts, nlp, matcher):
     return spans, words
 
 
-class DualSpaceKDV2WithETA(VariousDivergence):
+class DualSpaceKDV2WithCMA(VariousDivergence):
     def __init__(self, args, padding_id=-100) -> None:
         super().__init__(args, padding_id=padding_id)
 
