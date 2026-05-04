@@ -74,7 +74,7 @@ download_model "gpt2"                      gpt2      gpt2-base
 download_model "gpt2-medium"               gpt2      gpt2-medium
 # download_model "gpt2-xl"                   gpt2      gpt2-xl
 # download_model "facebook/opt-2.7b"         opt       opt-2.7b
-download_model "TinyLlama/TinyLlama_v1.1"  tinyllama tinyllama_v1.1  --all
+download_model "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"  tinyllama tinyllama-1.1B  --all
 
 log "Pre-warming teacher tokenizers (optional, speeds up first run)"
 python - <<'PY' || true

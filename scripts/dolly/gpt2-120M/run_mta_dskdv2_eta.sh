@@ -1,5 +1,5 @@
 #! /bin/bash
-GPUS=(0 1 2 3 4 5 6 7)
+GPUS=(0)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
@@ -38,7 +38,7 @@ KD_TEMP=2.0
 PROJECTOR_LR=0.0005
 TOPK_VOCAB=-1
 # length
-MAX_LENGTH=512
+MAX_LENGTH=256
 # runtime
 PRECISION="bf16"
 CRITERION="dual_space_kd_v2_with_eta"
@@ -90,7 +90,7 @@ OPTS+=" --topk-vocab ${TOPK_VOCAB}"
 # OPTS+=" --projector-path ${PROJECTOR_PATH}"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
-OPTS+=" --max-prompt-length 256"
+OPTS+=" --max-prompt-length 128"
 # runtime
 OPTS+=" --do-train"
 OPTS+=" --do-valid"
