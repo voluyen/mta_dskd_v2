@@ -362,7 +362,7 @@ def get_spans_offsets(texts, nlp, matcher):
     return spans, words
 
 
-class DualSpaceKDV2WithCMA(VariousDivergence):
+class DualSpaceKDWithCMA(VariousDivergence):
     def __init__(self, args, padding_id=-100) -> None:
         super().__init__(args, padding_id=padding_id)
 
