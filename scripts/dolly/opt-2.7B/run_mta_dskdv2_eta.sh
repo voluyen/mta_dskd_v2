@@ -1,5 +1,5 @@
 #! /bin/bash
-GPUS=(0 1 2 3 4 5 6 7)
+GPUS=(0)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
@@ -29,7 +29,7 @@ TASK="mta_dskd_v2_eta"
 # hp
 BATCH_SIZE=8
 LR=0.001
-GRAD_ACC=1
+GRAD_ACC=2
 EVAL_BATCH_SIZE=64
 EPOCH=5
 KD_RATE=0.5

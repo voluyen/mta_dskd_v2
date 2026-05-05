@@ -23,7 +23,7 @@ log "Using HF CLI: ${HF_CLI[*]}"
 # Pass --all to download every file in the repo (e.g. for tinyllama).
 download_model() {
     local hf_id="$1"
-    local target="${PROJECT_ROOT}/model_hub/$2/$3"
+    local target="model_hub/$2/$3"
     local mode="${4:-filtered}"
     if [[ -f "${target}/config.json" ]]; then
         log "  ✓ already present: ${target}"
@@ -70,19 +70,19 @@ download_model() {
 }
 
 # Student checkpoints referenced by scripts/dolly/*/run_*.sh
-download_model "gpt2"                      gpt2      gpt2-base
-download_model "gpt2-medium"               gpt2      gpt2-medium
-# download_model "gpt2-xl"                   gpt2      gpt2-xl
-# download_model "facebook/opt-2.7b"         opt       opt-2.7b
-download_model "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"  tinyllama tinyllama-1.1B  --all
+# download_model "gpt2"                      gpt2      gpt2-base
+# download_model "gpt2-medium"               gpt2      gpt2-medium
+download_model "gpt2-xl"                   gpt2      gpt2-xl
+download_model "facebook/opt-2.7b"         opt       opt-2.7b
+# download_model "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"  tinyllama tinyllama-1.1B
 
 log "Pre-warming teacher tokenizers (optional, speeds up first run)"
 python - <<'PY' || true
 from transformers import AutoTokenizer
 for hf_id in [
-    "VoCuc/Qwen1.5_1.8B_SFT_Dolly",
-    # "VoCuc/Qwen2.5-7B-Instruct-Dolly-SFT",
-    "VoCuc/Mistral7B_Dolly_SFT",
+    # "VoCuc/Qwen1.5_1.8B_SFT_Dolly",
+    "VoCuc/Qwen2.5-7B-Instruct-Dolly-SFT",
+    # "VoCuc/Mistral7B_Dolly_SFT",
 ]:
     try:
         AutoTokenizer.from_pretrained(hf_id, trust_remote_code=True)

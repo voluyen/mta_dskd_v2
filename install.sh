@@ -13,3 +13,4 @@ python -m pip install \
         "huggingface_hub"
 
 python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('punkt_tab', quiet=True)" || true
+pip install jsonlines spacy editdistance && python -m spacy download en_core_web_sm
