@@ -25,7 +25,7 @@ TEACHER_MODEL_PATH="VoCuc/Qwen1.5_1.8B_SFT_Dolly"
 # data
 DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
-TASK="mta_dskd_v2_eta_wo_entropy"
+TASK="mta_dskd_v2_eta"
 # hp
 BATCH_SIZE=8
 LR=0.0005
@@ -127,7 +127,7 @@ OPTS+=" --teacher_layer_mapping 6 12 18 24"
 OPTS+=" --student_layer_mapping 2 4 6 8"
 OPTS+=" --split_layer_mapping 0 1 4 4"
 OPTS+=" --w-span-loss 2.0"
-# OPTS+=" --entropy_weight"
+OPTS+=" --entropy_weight"
 
 
 export NCCL_DEBUG=""
