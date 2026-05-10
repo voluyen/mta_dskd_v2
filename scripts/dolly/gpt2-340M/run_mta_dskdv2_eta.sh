@@ -27,11 +27,11 @@ DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
 TASK="mta_dskd_v2_eta"
 # hp
-BATCH_SIZE=8
+BATCH_SIZE=4
 LR=0.0005
-GRAD_ACC=1
-EVAL_BATCH_SIZE=64
-EPOCH=5
+GRAD_ACC=2
+EVAL_BATCH_SIZE=32
+EPOCH=10
 KD_RATE=0.5
 KD_TEMP=2.0
 # distiller
@@ -127,7 +127,7 @@ OPTS+=" --teacher_layer_mapping 9 12 15 18 21 24"
 OPTS+=" --student_layer_mapping 9 12 15 18 21 24"
 OPTS+=" --split_layer_mapping 0 1 6 6"
 OPTS+=" --w-span-loss 2.0"
-OPTS+=" --entropy_weight"
+# OPTS+=" --entropy_weight"
 
 
 export NCCL_DEBUG=""
