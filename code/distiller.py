@@ -119,6 +119,8 @@ class Distiller(nn.Module):
         group.add_argument("--w-span-loss", type=float, default=1.0)
         group.add_argument("--MTA-mode", action="store_true", help='use MTA')
         group.add_argument("--entropy_weight", action="store_true")
+        group.add_argument("--no-weight", action="store_true",
+                           help='disable token/span importance weights; use uniform mean pooling for spans')
         return parser
     
     def load_tokenizer(self, model_type, path):
