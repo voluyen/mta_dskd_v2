@@ -153,7 +153,10 @@ def prepare_span_indices_and_weights(t_layer_weights, s_layer_weights, attention
 def get_span_loss(projectors, attention_mask, s_hidden_states, t_hidden_states, offsets_mapping,
                   spans_offsets, teacher_layer_mapping, student_layer_mapping, w_t_entropy=None,
                   no_weight=False):
-    
+
+    if len(teacher_layer_mapping) == 0 or len(student_layer_mapping) == 0:
+        return torch.tensor(0.0, device=s_hidden_states[0].device)
+
     t_layer_weights = []
     s_layer_weights = []
     for i in teacher_layer_mapping:
