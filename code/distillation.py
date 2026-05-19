@@ -293,8 +293,6 @@ def finetune(
 
 
             for batch in global_batch:
-                if epoch == 0:
-                    torch.cuda.reset_peak_memory_stats()
                 st_time = time.time()
                 loss, logging_output = model(
                     criterion, batch, logging_output)
@@ -305,13 +303,23 @@ def finetune(
                 elapsed_time = time.time() - st_time
                 logging_output["micro_step_time"].append(elapsed_time)
                 if epoch == 0:
-                    # peak during this forward+backward+step (not after cleanup)
-                    epoch1_alloc_gb.append(torch.cuda.max_memory_allocated() / 1024 ** 3)
+                    # resting state after gradients freed — matches paper's avg_alloc semantics
+                    epoch1_alloc_gb.append(torch.cuda.memory_allocated() / 1024 ** 3)
                 step += 1
 
             logging_output["global_step"] += 1
             logging_output["step_time"].append(time.time() - global_st_time)
             epoch_step += 1
+
+            if epoch == 0 and epoch_step >= 100:
+                if epoch1_alloc_gb:
+                    avg_alloc = sum(epoch1_alloc_gb) / len(epoch1_alloc_gb)
+                    peak_alloc = torch.cuda.max_memory_allocated() / 1024 ** 3
+                    avg_step_time = sum(logging_output["step_time"]) / len(logging_output["step_time"])
+                    log_rank("=== Benchmark (100 steps) ===")
+                    log_rank("{:<16} {:<20} {:<20}".format("Time/step(s)", "avg_alloc(GB)", "peak_alloc(GB)"))
+                    log_rank("{:<16.4f} {:<20.3f} {:<20.3f}".format(avg_step_time, avg_alloc, peak_alloc))
+                return
 
             def get_log(logging_output):
                 logging_info = ""
