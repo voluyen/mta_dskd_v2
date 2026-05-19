@@ -36,7 +36,7 @@ for s in "${ALL_SCRIPTS[@]}"; do
     mkdir -p "$(dirname "${log_file}")"
 
     log "▶ ${rel}  (log: ${log_file})"
-    bash "${s}" 0 2>&1 | tee "${log_file}" &
+    bash "${s}" 0 > "${log_file}" 2>&1 &
     PIDS+=($!)
     RELS+=("${rel}")
 done
