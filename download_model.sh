@@ -23,7 +23,7 @@ log "Using HF CLI: ${HF_CLI[*]}"
 # Pass --all to download every file in the repo (e.g. for tinyllama).
 download_model() {
     local hf_id="$1"
-    local target="${PROJECT_ROOT}/model_hub/$2/$3"
+    local target="$(pwd)/model_hub/$2/$3"
     local mode="${4:-filtered}"
     if [[ -f "${target}/config.json" ]]; then
         log "  ✓ already present: ${target}"
