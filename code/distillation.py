@@ -348,7 +348,7 @@ def finetune(
         log_rank("End of epoch {}".format(epoch + 1))
         if epoch == 0 and epoch1_alloc_gb:
             avg_alloc = sum(epoch1_alloc_gb) / len(epoch1_alloc_gb)
-            peak_alloc = torch.cuda.max_memory_allocated() / 1024 ** 3
+            peak_alloc = max(epoch1_alloc_gb)
             avg_step_time = sum(logging_output["step_time"]) / max(len(logging_output["step_time"]), 1)
             log_rank("Memory stats (epoch 1):")
             log_rank("{:<16} {:<20} {:<20}".format("Time/step(s)", "avg_alloc(GB)", "peak_alloc(GB)"))

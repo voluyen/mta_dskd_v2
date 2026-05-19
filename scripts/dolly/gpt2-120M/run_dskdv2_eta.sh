@@ -39,7 +39,7 @@ KD_TEMP=2.0
 PROJECTOR_LR=0.0005
 TOPK_VOCAB=-1
 # length
-MAX_LENGTH=512
+MAX_LENGTH=256
 # runtime
 PRECISION="bf16"
 CRITERION="dual_space_kd_v2_with_eta"
