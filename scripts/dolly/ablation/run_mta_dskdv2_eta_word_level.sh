@@ -18,10 +18,10 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 BASE_PATH=.
 CKPT_TYPE="gpt2"
 CKPT_NAME="gpt2-base"
-CKPT_PATH="/mnt/phongdq/projects/dwa_mta/model_hub/gpt2/gpt2-base"
+CKPT_PATH="./model_hub/gpt2/gpt2-base"
 TEACHER_MODEL_TYPE="qwen"
 TEACHER_MODEL_NAME="qwen1.5"
-TEACHER_MODEL_PATH="/mnt/phongdq/projects/dwa_mta/model_hub/qwen/Qwen1.5_1.8B_SFT_Dolly"
+TEACHER_MODEL_PATH="./model_hub/qwen/Qwen1.5_1.8B_SFT_Dolly"
 # data
 DATA_DIR="${BASE_PATH}/data/dolly/"
 # task

@@ -27,19 +27,27 @@ log "Will execute ${#ALL_SCRIPTS[@]} script(s):"
 for s in "${ALL_SCRIPTS[@]}"; do echo "    - ${s}"; done
 
 FAILED=()
+PIDS=()
+RELS=()
+
 for s in "${ALL_SCRIPTS[@]}"; do
     rel="${s#scripts/}"
     log_file="${LOG_DIR}/${rel%.sh}.log"
     mkdir -p "$(dirname "${log_file}")"
 
-    log "▶ ${rel}  (log: ${log_file#/})"
-    # All training scripts assume CWD == project root and BASE_PATH=. (relative).
-    if bash "${s}" ${GPUS:+"${GPUS}"} 2>&1 | tee "${log_file}"; then
-        log "✓ done: ${rel}"
+    log "▶ ${rel}  (log: ${log_file})"
+    bash "${s}" 0 2>&1 | tee "${log_file}" &
+    PIDS+=($!)
+    RELS+=("${rel}")
+done
+
+log "Waiting for ${#PIDS[@]} job(s) to finish..."
+for i in "${!PIDS[@]}"; do
+    if wait "${PIDS[$i]}"; then
+        log "✓ done: ${RELS[$i]}"
     else
-        log "✗ FAILED: ${rel} (see ${log_file})"
-        FAILED+=("${rel}")
-        break
+        log "✗ FAILED: ${RELS[$i]}"
+        FAILED+=("${RELS[$i]}")
     fi
 done
 
