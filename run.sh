@@ -8,8 +8,8 @@ log() { echo -e "\n[run.sh] $*"; }
 export -f log
 
 # Install dependencies (if not already done).
-bash install.sh
-bash download_model.sh
+# bash install.sh
+# bash download_model.sh
 
 
 export TF_CPP_MIN_LOG_LEVEL=3

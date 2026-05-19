@@ -1,6 +1,6 @@
 #! /bin/bash
 # GPUS=(0)
-GPUS=(0 1 2 3 4 5 6 7)
+GPUS=(0)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
@@ -19,10 +19,10 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 BASE_PATH=.
 CKPT_TYPE="gpt2"
 CKPT_NAME="gpt2-base"
-CKPT_PATH="${BASE_PATH}/model_hub/${CKPT_TYPE}/${CKPT_NAME}"
+CKPT_PATH="./model_hub/${CKPT_TYPE}/${CKPT_NAME}"
 TEACHER_MODEL_TYPE="qwen"
 TEACHER_MODEL_NAME="qwen2"
-TEACHER_MODEL_PATH="VoCuc/Qwen1.5_1.8B_SFT_Dolly"
+TEACHER_MODEL_PATH="./model_hub/qwen/Qwen1.5_1.8B_SFT_Dolly"
 # data
 DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
@@ -32,7 +32,7 @@ BATCH_SIZE=8
 LR=0.0005
 GRAD_ACC=1
 EVAL_BATCH_SIZE=64
-EPOCH=5
+EPOCH=10
 KD_RATE=0.5
 KD_TEMP=2.0
 # distiller
@@ -95,8 +95,8 @@ OPTS+=" --max-prompt-length 256"
 # runtime
 OPTS+=" --do-train"
 OPTS+=" --do-valid"
-OPTS+=" --eval-gen"
-OPTS+=" --save-interval 1"
+# OPTS+=" --eval-gen"
+OPTS+=" --save-interval 10"
 OPTS+=" --eval-interval 1"
 OPTS+=" --log-interval 50"
 OPTS+=" --save-dir ${SAVE_PATH}"

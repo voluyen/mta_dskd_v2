@@ -21,7 +21,7 @@ CKPT_NAME="gpt2-base"
 CKPT_PATH="${BASE_PATH}/model_hub/${CKPT_TYPE}/${CKPT_NAME}"
 TEACHER_MODEL_TYPE="qwen"
 TEACHER_MODEL_NAME="qwen1.5"
-TEACHER_MODEL_PATH="VoCuc/Qwen1.5_1.8B_SFT_Dolly"
+TEACHER_MODEL_PATH="./model_hub/qwen/Qwen1.5_1.8B_SFT_Dolly"
 # data
 DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
@@ -31,7 +31,7 @@ BATCH_SIZE=8
 LR=0.0005
 GRAD_ACC=1
 EVAL_BATCH_SIZE=64
-EPOCH=5
+EPOCH=10
 KD_RATE=0.5
 KD_TEMP=2.0
 # distiller
@@ -94,8 +94,8 @@ OPTS+=" --max-prompt-length 128"
 # runtime
 OPTS+=" --do-train"
 OPTS+=" --do-valid"
-OPTS+=" --eval-gen"
-OPTS+=" --save-interval 1"
+# OPTS+=" --eval-gen"
+OPTS+=" --save-interval 10"
 OPTS+=" --eval-interval 1"
 OPTS+=" --log-interval 50"
 OPTS+=" --save-dir ${SAVE_PATH}"

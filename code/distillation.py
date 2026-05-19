@@ -116,6 +116,9 @@ def finetune(
     #     device,
     #     repeat_times=1
     # )
+    torch.cuda.reset_peak_memory_stats()
+    epoch1_alloc_gb = []
+
     dist.barrier()
     for epoch in range(args.num_epochs):
         sampler.set_epoch(epoch)
@@ -299,6 +302,8 @@ def finetune(
                 torch.cuda.synchronize()
                 elapsed_time = time.time() - st_time
                 logging_output["micro_step_time"].append(elapsed_time)
+                if epoch == 0:
+                    epoch1_alloc_gb.append(torch.cuda.memory_allocated() / 1024 ** 3)
                 step += 1
 
             logging_output["global_step"] += 1
@@ -338,6 +343,13 @@ def finetune(
                         logging_output[key] = []
             
         log_rank("End of epoch {}".format(epoch + 1))
+        if epoch == 0 and epoch1_alloc_gb:
+            avg_alloc = sum(epoch1_alloc_gb) / len(epoch1_alloc_gb)
+            peak_alloc = torch.cuda.max_memory_allocated() / 1024 ** 3
+            avg_step_time = sum(logging_output["step_time"]) / max(len(logging_output["step_time"]), 1)
+            log_rank("Memory stats (epoch 1):")
+            log_rank("{:<16} {:<20} {:<20}".format("Time/step(s)", "avg_alloc(GB)", "peak_alloc(GB)"))
+            log_rank("{:<16.4f} {:<20.3f} {:<20.3f}".format(avg_step_time, avg_alloc, peak_alloc))
         log_rank("train | epoch {:0>3d} | loss {:.4f} | nll_loss {:.4f} | kd_loss {:.4f}".format(
             epoch + 1,
             epoch_loss / (epoch_step * args.gradient_accumulation_steps),
