@@ -7,17 +7,20 @@ mkdir -p "${LOG_DIR}"
 log() { echo -e "\n[run.sh] $*"; }
 
 # Install dependencies (if not already done).
-# bash install.sh
-# bash download_model.sh
+bash install.sh
+bash download_model.sh
 
 
 export TF_CPP_MIN_LOG_LEVEL=3
 export WANDB_DISABLED=True
 
 ALL_SCRIPTS=(
-    "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh"
-    "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh"
-    "scripts/dolly/tinyllama-1.1B/run_mta_dskdv2_eta.sh"
+    # "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh"
+    # "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh"
+    # "scripts/dolly/tinyllama-1.1B/run_mta_dskdv2_eta.sh"
+    "scripts/dolly/ablation/run_mta_dskdv2_eta_word_level.sh"
+    "scripts/dolly/ablation/run_mta_dskdv2_eta_phrase_level.sh"
+    # "scripts/dolly/ablation/run_mta_dskdv2_eta_wo_weight.sh"
 )
 
 log "Will execute ${#ALL_SCRIPTS[@]} script(s):"
