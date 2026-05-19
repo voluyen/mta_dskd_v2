@@ -293,6 +293,8 @@ def finetune(
 
 
             for batch in global_batch:
+                if epoch == 0:
+                    torch.cuda.reset_peak_memory_stats()
                 st_time = time.time()
                 loss, logging_output = model(
                     criterion, batch, logging_output)
@@ -303,7 +305,8 @@ def finetune(
                 elapsed_time = time.time() - st_time
                 logging_output["micro_step_time"].append(elapsed_time)
                 if epoch == 0:
-                    epoch1_alloc_gb.append(torch.cuda.memory_allocated() / 1024 ** 3)
+                    # peak during this forward+backward+step (not after cleanup)
+                    epoch1_alloc_gb.append(torch.cuda.max_memory_allocated() / 1024 ** 3)
                 step += 1
 
             logging_output["global_step"] += 1
