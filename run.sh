@@ -5,6 +5,7 @@ LOG_DIR="logs"
 mkdir -p "${LOG_DIR}"
 
 log() { echo -e "\n[run.sh] $*"; }
+export -f log
 
 # Install dependencies (if not already done).
 bash install.sh
