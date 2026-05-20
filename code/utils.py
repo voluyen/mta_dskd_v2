@@ -97,12 +97,15 @@ def init_distributed_ds(args):
     args.local_rank = int(os.getenv("LOCAL_RANK", "0"))
 
     log_rank(f"Using world size: {args.world_size}")
-    
-    # Manually set the device ids.
-    device = args.rank % torch.cuda.device_count()
 
-    if args.local_rank is not None:
-        device = args.local_rank
+    n_devices = torch.cuda.device_count()
+    if n_devices == 0:
+        raise RuntimeError(
+            f"No CUDA devices visible (CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', 'unset')})."
+            " Check that the container has GPU access and the device indices are correct."
+        )
+
+    device = args.local_rank if args.local_rank is not None else args.rank % n_devices
     torch.cuda.set_device(device)
 
     deepspeed.init_distributed(timeout=timedelta(minutes=30))
