@@ -59,7 +59,7 @@ def aggregate_spans_for_model(hidden_states, layer_weights, attention_mask, offs
     token_in_span_map = (offsets_start + 1 >= span_starts_exp) & (offsets_end <= span_ends_exp)
     token_in_span_map = token_in_span_map & attention_mask.unsqueeze(2).bool() 
     
-    A = token_in_span_map.transpose(1, 2).float() 
+    A = token_in_span_map.transpose(1, 2).to(hidden_states.dtype)
     
     weighted_hidden = hidden_states * layer_weights.unsqueeze(-1) 
     span_sum = torch.bmm(A, weighted_hidden)               
