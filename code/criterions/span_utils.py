@@ -78,65 +78,67 @@ def aggregate_spans_for_model(hidden_states, layer_weights, attention_mask, offs
     return span_repr, weight_sum, final_ent_weight, valid_span_mask
 
 
-def compute_hidden_span_loss(projector, s_span_repr, t_span_repr, valid_span_mask, w_sum):
+def compute_hidden_span_loss(projector, s_span_repr, t_span_repr, valid_span_mask, w_sum, use_span_weight=True):
     device = s_span_repr.device
     B_size, Max_Spans = valid_span_mask.shape
-    
-    s_span_proj = projector(s_span_repr) 
-    
+
+    s_span_proj = projector(s_span_repr)
+
     valid_s = s_span_proj[valid_span_mask] # (N_valid, D)
     valid_t = t_span_repr[valid_span_mask] # (N_valid, D)
     valid_w = w_sum[valid_span_mask]       # (N_valid)
-    
+
     if valid_s.size(0) == 0:
         return torch.tensor(0.0, device=device)
-        
+
     batch_indices = torch.arange(B_size, device=device).unsqueeze(1).expand(-1, Max_Spans)
-    valid_batch_ids = batch_indices[valid_span_mask] 
-    
+    valid_batch_ids = batch_indices[valid_span_mask]
+
     S_normalized = F.normalize(valid_s, p=2, dim=-1)
     T_normalized = F.normalize(valid_t, p=2, dim=-1)
-    
+
     S_sim_matrix = S_normalized @ S_normalized.T
     T_sim_matrix = T_normalized @ T_normalized.T
-    
+
     Same_Batch_Mask = (valid_batch_ids.unsqueeze(1) == valid_batch_ids.unsqueeze(0))
     Not_Self_Mask = ~torch.eye(valid_s.size(0), dtype=torch.bool, device=device)
     Final_Mask = Same_Batch_Mask & Not_Self_Mask
-    
+
     S_intra_batch_similarities_flat = torch.masked_select(S_sim_matrix, Final_Mask)
     T_intra_batch_similarities_flat = torch.masked_select(T_sim_matrix, Final_Mask)
-    
-    Pair_Weights_Matrix = valid_w.unsqueeze(1) * valid_w.unsqueeze(0)
-    Valid_Pair_Weights = torch.masked_select(Pair_Weights_Matrix, Final_Mask)
-    
+
     span_rel_loss = F.mse_loss(S_intra_batch_similarities_flat, T_intra_batch_similarities_flat, reduction='none')
-    span_rel_loss = (span_rel_loss * Valid_Pair_Weights).sum() / Valid_Pair_Weights.sum().clamp(min=1e-5)
-    
-    
+
+    if use_span_weight:
+        Pair_Weights_Matrix = valid_w.unsqueeze(1) * valid_w.unsqueeze(0)
+        Valid_Pair_Weights = torch.masked_select(Pair_Weights_Matrix, Final_Mask)
+        span_rel_loss = (span_rel_loss * Valid_Pair_Weights).sum() / Valid_Pair_Weights.sum().clamp(min=1e-5)
+    else:
+        span_rel_loss = span_rel_loss.mean() if span_rel_loss.numel() > 0 else torch.tensor(0.0, device=device)
+
     return span_rel_loss
 
 
-def get_span_loss(projectors, s_att_mask, t_att_mask, s_hidden_states, t_hidden_states, 
-                  s_offsets_mapping, t_offsets_mapping, spans_offsets, 
-                  teacher_layer_mapping, student_layer_mapping, w_t_entropy=None):
-    
+def get_span_loss(projectors, s_att_mask, t_att_mask, s_hidden_states, t_hidden_states,
+                  s_offsets_mapping, t_offsets_mapping, spans_offsets,
+                  teacher_layer_mapping, student_layer_mapping, w_t_entropy=None, use_span_weight=True):
+
     final_loss = 0.0
     for i, (s_idx, t_idx, projector) in enumerate(zip(student_layer_mapping, teacher_layer_mapping, projectors)):
         s_hidden = s_hidden_states[s_idx]
         t_hidden = t_hidden_states[t_idx]
-        
-        s_weights = compute_token_weights(s_hidden, s_att_mask) 
-        t_weights = compute_token_weights(t_hidden, t_att_mask) 
-        
+
+        s_weights = compute_token_weights(s_hidden, s_att_mask)
+        t_weights = compute_token_weights(t_hidden, t_att_mask)
+
         s_span_repr, _, _, valid_mask = aggregate_spans_for_model(s_hidden, s_weights, s_att_mask, s_offsets_mapping, spans_offsets)
         t_span_repr, t_weight_sum, t_ent_weight_sum, _ = aggregate_spans_for_model(t_hidden, t_weights, t_att_mask, t_offsets_mapping, spans_offsets, w_t_entropy)
-        
+
         if s_span_repr is None or t_span_repr is None:
             continue
-            
+
         w_sum = t_ent_weight_sum if w_t_entropy is not None else t_weight_sum
-        span_loss = compute_hidden_span_loss(projector, s_span_repr, t_span_repr, valid_mask, w_sum)
+        span_loss = compute_hidden_span_loss(projector, s_span_repr, t_span_repr, valid_mask, w_sum, use_span_weight=use_span_weight)
         final_loss += span_loss
 
     return final_loss
@@ -152,19 +154,21 @@ def compute_overall_span_loss(projectors, s_att_mask, t_att_mask, s_logits, t_lo
         t_entropy = -(t_probs * torch.log(t_probs + 1e-8)).sum(dim=-1)
         w_t_entropy = 1 - t_entropy / math.log(t_logits.size(-1))
 
+    use_span_weight = not getattr(args, 'wo_span_weight', False)
+
     s_word_mapping = args.student_layer_mapping[args.split_layer_mapping[0]:args.split_layer_mapping[1]]
     t_word_mapping = args.teacher_layer_mapping[args.split_layer_mapping[0]:args.split_layer_mapping[1]]
     word_projectors = projectors[args.split_layer_mapping[0]:args.split_layer_mapping[1]]
-    
-    word_loss = get_span_loss(word_projectors, s_att_mask, t_att_mask, s_hidden_states, t_hidden_states, 
-                              s_offsets_mapping, t_offsets_mapping, words_offsets, t_word_mapping, s_word_mapping, w_t_entropy)
-    
+
+    word_loss = get_span_loss(word_projectors, s_att_mask, t_att_mask, s_hidden_states, t_hidden_states,
+                              s_offsets_mapping, t_offsets_mapping, words_offsets, t_word_mapping, s_word_mapping, w_t_entropy, use_span_weight=use_span_weight)
+
     s_span_mapping = args.student_layer_mapping[args.split_layer_mapping[1]:args.split_layer_mapping[2]]
     t_span_mapping = args.teacher_layer_mapping[args.split_layer_mapping[1]:args.split_layer_mapping[2]]
     span_projectors = projectors[args.split_layer_mapping[1]:args.split_layer_mapping[2]]
-    
-    span_loss = get_span_loss(span_projectors, s_att_mask, t_att_mask, s_hidden_states, t_hidden_states, 
-                              s_offsets_mapping, t_offsets_mapping, spans_offsets, t_span_mapping, s_span_mapping, w_t_entropy)
+
+    span_loss = get_span_loss(span_projectors, s_att_mask, t_att_mask, s_hidden_states, t_hidden_states,
+                              s_offsets_mapping, t_offsets_mapping, spans_offsets, t_span_mapping, s_span_mapping, w_t_entropy, use_span_weight=use_span_weight)
     
     overall_loss = (word_loss + span_loss) / len(args.student_layer_mapping)
     return overall_loss

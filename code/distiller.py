@@ -119,6 +119,7 @@ class Distiller(nn.Module):
         group.add_argument("--w-span-loss", type=float, default=1.0)
         group.add_argument("--MTA-mode", action="store_true", help='use MTA')
         group.add_argument("--entropy_weight", action="store_true")
+        group.add_argument("--wo-span-weight", action="store_true", help='disable span pair weighting in L_DSA')
         return parser
     
     def load_tokenizer(self, model_type, path):
