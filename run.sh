@@ -38,6 +38,7 @@ bash download_model.sh
 
 export TF_CPP_MIN_LOG_LEVEL=3
 export WANDB_DISABLED=True
+export TOKENIZERS_PARALLELISM=false
 
 ALL_SCRIPTS=(
     "scripts/dolly/gpt2-120M/run_dskdv2_eta.sh"

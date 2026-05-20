@@ -115,8 +115,8 @@ class DualSpaceKDV2WithETA(VariousDivergence):
             span_loss = compute_overall_span_loss(distiller.mta_projector_list, batch_input['attention_mask'], 
                                                     batch["teacher_input_batch"]['attention_mask'],
                                                     logits, teacher_outputs.logits, 
-                                                    outputs.hidden_states, 
-                                                    teacher_outputs.token_hidden_states, 
+                                                    outputs.hidden_states,
+                                                    teacher_outputs.hidden_states,
                                                     s_offsets_mapping, t_offsets_mapping, 
                                                     spans_offsets, words_offsets, self.args)
             span_loss = self.args.w_span_loss * span_loss
