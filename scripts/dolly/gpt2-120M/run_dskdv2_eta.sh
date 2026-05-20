@@ -31,7 +31,7 @@ TASK="dskd_v2_eta"
 BATCH_SIZE=4
 LR=0.0005
 GRAD_ACC=1
-EVAL_BATCH_SIZE=64
+EVAL_BATCH_SIZE=128
 EPOCH=20
 KD_RATE=0.5
 KD_TEMP=2.0
@@ -39,7 +39,7 @@ KD_TEMP=2.0
 PROJECTOR_LR=0.0005
 TOPK_VOCAB=-1
 # length
-MAX_LENGTH=512
+MAX_LENGTH=256
 # runtime
 PRECISION="bf16"
 CRITERION="dual_space_kd_v2_with_eta"
@@ -91,7 +91,7 @@ OPTS+=" --topk-vocab ${TOPK_VOCAB}"
 # OPTS+=" --projector-path ${PROJECTOR_PATH}"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
-OPTS+=" --max-prompt-length 256"
+OPTS+=" --max-prompt-length 128"
 # runtime
 OPTS+=" --do-train"
 OPTS+=" --do-valid"
