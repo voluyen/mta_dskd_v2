@@ -107,10 +107,14 @@ class DualSpaceKDV2WithETA(VariousDivergence):
             t_tokenizer = distiller.teacher_tokenizer
             input_texts = s_tokenizer.batch_decode(batch_input['input_ids'], skip_special_tokens=True)
             device = batch_input['input_ids'].device
-            s_offsets_mapping = s_tokenizer(input_texts, return_offsets_mapping=True, padding=True,
+            s_seq_len = batch_input['input_ids'].shape[1]
+            t_seq_len = batch["teacher_input_batch"]['attention_mask'].shape[1]
+            s_offsets_mapping = s_tokenizer(input_texts, return_offsets_mapping=True,
+                                            max_length=s_seq_len, padding='max_length', truncation=True,
                                             add_special_tokens=False, return_tensors='pt')['offset_mapping'].to(device)
-            t_offsets_mapping = t_tokenizer(input_texts, return_offsets_mapping=True, padding=True,
-                                           add_special_tokens=False, return_tensors='pt')['offset_mapping'].to(device)
+            t_offsets_mapping = t_tokenizer(input_texts, return_offsets_mapping=True,
+                                            max_length=t_seq_len, padding='max_length', truncation=True,
+                                            add_special_tokens=False, return_tensors='pt')['offset_mapping'].to(device)
             spans_offsets, words_offsets = get_spans_offsets(input_texts, self.nlp, self.matcher)
 
             span_loss = compute_overall_span_loss(distiller.mta_projector_list, batch_input['attention_mask'], 
