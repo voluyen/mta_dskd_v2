@@ -60,10 +60,13 @@ for s in "${ALL_SCRIPTS[@]}"; do
 
     log "▶ ${rel}  (log: ${log_file#/})"
     # All training scripts assume CWD == project root and BASE_PATH=. (relative).
-    if bash "${s}" ${GPUS:+"${GPUS}"} 2>&1 | tee "${log_file}"; then
+    # `-o pipefail` is forwarded so the inner `torchrun ... | tee` pipeline in
+    # each script propagates failure (otherwise tee masks torchrun's exit code).
+    if bash -o pipefail "${s}" ${GPUS:+"${GPUS}"} 2>&1 | tee "${log_file}"; then
         log "✓ done: ${rel}"
     else
-        log "✗ FAILED: ${rel} (see ${log_file})"
+        rc=${PIPESTATUS[0]}
+        log "✗ FAILED: ${rel} (exit=${rc}, see ${log_file}) — stopping."
         FAILED+=("${rel}")
         break
     fi
