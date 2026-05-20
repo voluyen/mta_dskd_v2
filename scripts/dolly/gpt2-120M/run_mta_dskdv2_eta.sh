@@ -1,5 +1,5 @@
 #! /bin/bash
-GPUS=(0)
+GPUS=(6 7)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
@@ -27,11 +27,11 @@ DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
 TASK="mta_dskd_v2_eta_wo_entropy"
 # hp
-BATCH_SIZE=8
+BATCH_SIZE=4
 LR=0.0005
 GRAD_ACC=1
 EVAL_BATCH_SIZE=64
-EPOCH=10
+EPOCH=20
 KD_RATE=0.5
 KD_TEMP=2.0
 # distiller
