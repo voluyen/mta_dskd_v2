@@ -23,7 +23,7 @@ def compute_token_weights(hidden_state, attention_mask):
     attn_weights = attn_weights * mask
     attn_weights = attn_weights / attn_weights.sum(dim=-1, keepdim=True)
 
-    token_weights = attn_weights.mean(dim=1).squeeze(0)  # [L]
+    token_weights = attn_weights.mean(dim=1)  # [B, L]
     return token_weights.detach()
 
 def aggregate_spans_for_model(hidden_states, layer_weights, attention_mask, offsets_mapping, spans_offsets, entropy_weights=None):
