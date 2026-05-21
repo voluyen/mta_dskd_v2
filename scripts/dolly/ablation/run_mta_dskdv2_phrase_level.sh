@@ -1,5 +1,5 @@
 #! /bin/bash
-GPUS=(6 7)
+GPUS=(4 5)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
@@ -95,7 +95,7 @@ OPTS+=" --max-prompt-length 128"
 OPTS+=" --do-train"
 OPTS+=" --do-valid"
 OPTS+=" --eval-gen"
-OPTS+=" --save-interval 1"
+OPTS+=" --save-interval -1"
 OPTS+=" --eval-interval 1"
 OPTS+=" --log-interval 50"
 OPTS+=" --save-dir ${SAVE_PATH}"
