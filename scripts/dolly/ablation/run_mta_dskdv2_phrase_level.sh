@@ -25,7 +25,7 @@ TEACHER_MODEL_PATH="VoCuc/Qwen1.5_1.8B_SFT_Dolly"
 # data
 DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
-TASK="mta_dskd_v2_eta_wo_entropy"
+TASK="mta_dskd_v2_ablation_phrase_level"
 # hp
 BATCH_SIZE=4
 LR=0.0005

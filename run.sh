@@ -46,7 +46,7 @@ export NCCL_NVLS_ENABLE=0
 export NCCL_P2P_DISABLE=1
 
 ALL_SCRIPTS=(
-    "scripts/dolly/gpt2-120M/run_dskdv2_eta.sh"
+    # "scripts/dolly/gpt2-120M/run_dskdv2_eta.sh"
     "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh"
     "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh"
     "scripts/dolly/tinyllama-1.1B/run_mta_dskdv2_eta.sh"
