@@ -40,6 +40,11 @@ export TF_CPP_MIN_LOG_LEVEL=3
 export WANDB_DISABLED=True
 export TOKENIZERS_PARALLELISM=false
 
+# Disable NVLink SHARP (NVLS) multicast — server has no working NVSwitch/Fabric
+# Manager, so NCCL otherwise fails with CUDA error 802 'system not yet initialized'.
+export NCCL_NVLS_ENABLE=0
+export NCCL_P2P_DISABLE=1
+
 ALL_SCRIPTS=(
     "scripts/dolly/gpt2-120M/run_dskdv2_eta.sh"
     "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh"
