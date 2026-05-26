@@ -1,9 +1,9 @@
 #! /bin/bash
-GPUS=(2 3)
+GPUS=(4)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
-MASTER_PORT=66$(($RANDOM%90+10))
+MASTER_PORT="${MASTER_PORT:-66$(($RANDOM%90+10))}"
 NNODES=1
 NODE_RANK=0
 GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print NF}')
@@ -27,10 +27,10 @@ DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
 TASK="mta_dskd_v2_eta"
 # hp
-BATCH_SIZE=4
+BATCH_SIZE=8
 LR=0.001
 GRAD_ACC=1
-EVAL_BATCH_SIZE=16
+EVAL_BATCH_SIZE=32
 EPOCH=15
 KD_RATE=0.5
 KD_TEMP=2.0
@@ -50,7 +50,7 @@ KD_OBJ="forward_kl"   # [forward_kl, reverse_kl, js_divergence, skewed_forward_k
 CONFIG="${KD_OBJ}-${PRECISION}"
 SETTING="${CONFIG}__teacher_${TEACHER_MODEL_NAME}__kd^rate${KD_RATE}__kd^temp${KD_TEMP}__epoch${EPOCH}__bsz${BATCH_SIZE}x${GRAD_ACC}x${GPUS_PER_NODE}x${NNODES}_$((BATCH_SIZE * GRAD_ACC * GPUS_PER_NODE * NNODES))__lr${LR}__proj^lr${PROJECTOR_LR}"
 SAVE_PATH="${BASE_PATH}/outputs/${CKPT_TYPE}/${CKPT_NAME}/${TASK}/${SETTING}"
-SAVE_BEST_N_CKPTS=3
+SAVE_BEST_N_CKPTS=5
 # seed
 SEED=10
 
@@ -111,7 +111,7 @@ OPTS+=" --save-dir ${SAVE_PATH}"
 OPTS+=" --keep-best-n-checkpoints ${SAVE_BEST_N_CKPTS}"
 OPTS+=" --criterion ${CRITERION}"
 # OPTS+=" --on-policy"
-# OPTS+=" --on-policy-after-n-epochs 1"
+# OPTS+=" --on-policy-after-n-epochs 5"
 # OPTS+=" --stu-gen-ratio 1.0"
 # seed
 OPTS+=" --seed ${SEED}"
@@ -132,9 +132,9 @@ OPTS+=" --temperature 1.0"
 
 #MTA
 OPTS+=" --MTA-mode"
-OPTS+=" --teacher_layer_mapping 8 12 16 20 24 28"
-OPTS+=" --student_layer_mapping 8 16 24 32 40 48"
-OPTS+=" --split_layer_mapping 0 1 6 6"
+OPTS+=" --teacher_layer_mapping 7 11 14 18 21 25 28"
+OPTS+=" --student_layer_mapping 12 18 24 30 36 42 48"
+OPTS+=" --split_layer_mapping 0 1 7 7"
 OPTS+=" --w-span-loss 2.0"
 # OPTS+=" --entropy_weight"
 

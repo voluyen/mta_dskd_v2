@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -u
 set -o pipefail
 
@@ -35,7 +36,6 @@ fi
 bash install.sh
 bash download_model.sh
 
-
 export TF_CPP_MIN_LOG_LEVEL=3
 export WANDB_DISABLED=True
 export TOKENIZERS_PARALLELISM=false
@@ -45,38 +45,66 @@ export TOKENIZERS_PARALLELISM=false
 export NCCL_NVLS_ENABLE=0
 export NCCL_P2P_DISABLE=1
 
-ALL_SCRIPTS=(
-    # "scripts/dolly/gpt2-120M/run_dskdv2_eta.sh"
-    "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh"
-    "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh"
-    "scripts/dolly/gpt2-1.5B/run_mta_dskdv2_eta.sh"
-    "scripts/dolly/opt-2.7B/run_mta_dskdv2_eta.sh"
-    "scripts/dolly/tinyllama-1.1B/run_mta_dskdv2_eta.sh"
-    "scripts/dolly/ablation/run_mta_dskdv2_wo_weight.sh"
-    "scripts/dolly/ablation/run_mta_dskdv2_word_level.sh"
-    "scripts/dolly/ablation/run_mta_dskdv2_phrase_level.sh"
+# ---------------------------------------------------------------------------
+# Job list: "script_path|gpu_id|master_port"
+# - gpu_id    : passed as $1 to each script → overrides its built-in GPUS=()
+# - master_port: injected via MASTER_PORT env var (each script respects
+#               MASTER_PORT="${MASTER_PORT:-<random>}" so ports never collide)
+# Adjust GPU IDs to match your server's available devices (here: 3, 4, 5).
+# ---------------------------------------------------------------------------
+declare -a JOBS=(
+    "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh|3|6610"
+    "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh|3|6620"
+    "scripts/dolly/tinyllamA-1.1B/run_mta_dskdv2_eta.sh|3|6630"
+    "scripts/dolly/gpt2-1.5B/run_mta_dskdv2_eta.sh|4|6640"
+    "scripts/dolly/opt-2.7B/run_mta_dskdv2_eta.sh|4|6650"
+    "scripts/dolly/ablation/run_mta_dskdv2_wo_weight.sh|5|6660"
+    "scripts/dolly/ablation/run_mta_dskdv2_word_level.sh|5|6670"
+    "scripts/dolly/ablation/run_mta_dskdv2_phrase_level.sh|5|6680"
 )
 
-log "Will execute ${#ALL_SCRIPTS[@]} script(s):"
-for s in "${ALL_SCRIPTS[@]}"; do echo "    - ${s}"; done
+log "Launching ${#JOBS[@]} jobs simultaneously:"
+for entry in "${JOBS[@]}"; do
+    IFS='|' read -r s g p <<< "${entry}"
+    echo "    GPU ${g}  port ${p}  ←  ${s#scripts/}"
+done
 
-FAILED=()
-for s in "${ALL_SCRIPTS[@]}"; do
+# ---------------------------------------------------------------------------
+# Launch all jobs in the background, each with its own dedicated port
+# ---------------------------------------------------------------------------
+PIDS=()
+SCRIPTS=()
+LOG_FILES=()
+
+for entry in "${JOBS[@]}"; do
+    IFS='|' read -r s g p <<< "${entry}"
     rel="${s#scripts/}"
     log_file="${LOG_DIR}/${rel%.sh}.log"
     mkdir -p "$(dirname "${log_file}")"
 
-    log "▶ ${rel}  (log: ${log_file#/})"
-    # All training scripts assume CWD == project root and BASE_PATH=. (relative).
-    # `-o pipefail` is forwarded so the inner `torchrun ... | tee` pipeline in
-    # each script propagates failure (otherwise tee masks torchrun's exit code).
-    if bash -o pipefail "${s}" ${GPUS:+"${GPUS}"} 2>&1 | tee "${log_file}"; then
-        log "✓ done: ${rel}"
+    log "▶ GPU ${g} port ${p}: ${rel}  →  ${log_file}"
+    # MASTER_PORT env var is consumed by the script's:
+    #   MASTER_PORT="${MASTER_PORT:-66$(($RANDOM%90+10))}"
+    MASTER_PORT="${p}" bash -o pipefail "${s}" "${g}" 2>&1 | tee "${log_file}" &
+    PIDS+=($!)
+    SCRIPTS+=("${rel}")
+    LOG_FILES+=("${log_file}")
+done
+
+log "All ${#PIDS[@]} jobs launched — waiting for completion..."
+
+# ---------------------------------------------------------------------------
+# Wait for every job and collect failures
+# ---------------------------------------------------------------------------
+FAILED=()
+for i in "${!PIDS[@]}"; do
+    wait "${PIDS[$i]}"
+    rc=$?
+    if [ $rc -eq 0 ]; then
+        log "✓ done : ${SCRIPTS[$i]}"
     else
-        rc=${PIPESTATUS[0]}
-        log "✗ FAILED: ${rel} (exit=${rc}, see ${log_file}) — stopping."
-        FAILED+=("${rel}")
-        break
+        log "✗ FAILED: ${SCRIPTS[$i]} (exit=${rc}, see ${LOG_FILES[$i]})"
+        FAILED+=("${SCRIPTS[$i]} (exit=${rc})")
     fi
 done
 
@@ -84,7 +112,11 @@ done
 # Summary
 # ---------------------------------------------------------------------------
 log "===================== summary ====================="
-log "Total scripts : ${#ALL_SCRIPTS[@]}"
-log "Failed        : ${#FAILED[@]}"
+log "Total jobs : ${#JOBS[@]}"
+log "Succeeded  : $(( ${#JOBS[@]} - ${#FAILED[@]} ))"
+log "Failed     : ${#FAILED[@]}"
 for f in "${FAILED[@]}"; do echo "    ✗ ${f}"; done
-log "Logs in       : ${LOG_DIR}"
+if [ ${#FAILED[@]} -eq 0 ]; then
+    log "All jobs completed successfully ✓"
+fi
+log "Logs in    : ${LOG_DIR}/"

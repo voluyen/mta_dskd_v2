@@ -1,9 +1,9 @@
 #! /bin/bash
-GPUS=(2 3)
+GPUS=(3)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
-MASTER_PORT=66$(($RANDOM%90+10))
+MASTER_PORT="${MASTER_PORT:-66$(($RANDOM%90+10))}"
 NNODES=1
 NODE_RANK=0
 GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print NF}')
@@ -27,10 +27,10 @@ DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
 TASK="mta_dskd_v2_ablation_wo_weight"
 # hp
-BATCH_SIZE=4
+BATCH_SIZE=8
 LR=0.0005
 GRAD_ACC=1
-EVAL_BATCH_SIZE=128
+EVAL_BATCH_SIZE=32
 EPOCH=20
 KD_RATE=0.5
 KD_TEMP=2.0
@@ -102,7 +102,7 @@ OPTS+=" --save-dir ${SAVE_PATH}"
 OPTS+=" --keep-best-n-checkpoints ${SAVE_BEST_N_CKPTS}"
 OPTS+=" --criterion ${CRITERION}"
 # OPTS+=" --on-policy"
-# OPTS+=" --on-policy-after-n-epochs 1"
+# OPTS+=" --on-policy-after-n-epochs 5"
 # OPTS+=" --stu-gen-ratio 1.0"
 # seed
 OPTS+=" --seed ${SEED}"
@@ -123,9 +123,9 @@ OPTS+=" --temperature 1.0"
 
 #MTA
 OPTS+=" --MTA-mode"
-OPTS+=" --teacher_layer_mapping 6 12 18 24"
-OPTS+=" --student_layer_mapping 2 4 6 8"
-OPTS+=" --split_layer_mapping 0 1 4 4"
+OPTS+=" --teacher_layer_mapping 12 18 24"
+OPTS+=" --student_layer_mapping 6 9 12"
+OPTS+=" --split_layer_mapping 0 1 3 3"
 OPTS+=" --w-span-loss 2.0"
 OPTS+=" --wo-span-weight"
 # OPTS+=" --entropy_weight"

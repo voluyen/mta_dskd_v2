@@ -1,9 +1,9 @@
 #! /bin/bash
-GPUS=(2 3)
+GPUS=(5)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
-MASTER_PORT=66$(($RANDOM%90+10))
+MASTER_PORT="${MASTER_PORT:-66$(($RANDOM%90+10))}"
 NNODES=1
 NODE_RANK=0
 GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print NF}')
@@ -27,10 +27,10 @@ DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
 TASK="mta_dskd_v2_eta"
 # hp
-BATCH_SIZE=4
+BATCH_SIZE=8
 LR=0.001
 GRAD_ACC=1
-EVAL_BATCH_SIZE=128
+EVAL_BATCH_SIZE=32
 EPOCH=15
 KD_RATE=0.5
 KD_TEMP=2.0
@@ -111,7 +111,7 @@ OPTS+=" --save-dir ${SAVE_PATH}"
 OPTS+=" --keep-best-n-checkpoints ${SAVE_BEST_N_CKPTS}"
 OPTS+=" --criterion ${CRITERION}"
 # OPTS+=" --on-policy"
-# OPTS+=" --on-policy-after-n-epochs 1"
+# OPTS+=" --on-policy-after-n-epochs 5"
 # OPTS+=" --stu-gen-ratio 1.0"
 # seed
 OPTS+=" --seed ${SEED}"
