@@ -53,59 +53,44 @@ export NCCL_P2P_DISABLE=1
 # Adjust GPU IDs to match your server's available devices (here: 3, 4, 5).
 # ---------------------------------------------------------------------------
 declare -a JOBS=(
-    "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh|3|6610"
-    "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh|3|6620"
-    "scripts/dolly/tinyllamA-1.1B/run_mta_dskdv2_eta.sh|3|6630"
-    "scripts/dolly/gpt2-1.5B/run_mta_dskdv2_eta.sh|4|6640"
-    "scripts/dolly/opt-2.7B/run_mta_dskdv2_eta.sh|4|6650"
-    "scripts/dolly/ablation/run_mta_dskdv2_wo_weight.sh|5|6660"
-    "scripts/dolly/ablation/run_mta_dskdv2_word_level.sh|5|6670"
-    "scripts/dolly/ablation/run_mta_dskdv2_phrase_level.sh|5|6680"
+    "scripts/dolly/gpt2-340M/run_dskdv2_eta.sh|4|6700"
+    "scripts/dolly/gpt2-1.5B/run_dskdv2_eta.sh|4|6710"
+    "scripts/dolly/opt-2.7B/run_dskdv2_eta.sh|4|6720"
+    "scripts/dolly/tinyllama-1.1B/run_dskdv2_eta.sh|4|6730"
 )
 
-log "Launching ${#JOBS[@]} jobs simultaneously:"
+log "Launching ${#JOBS[@]} jobs sequentially:"
 for entry in "${JOBS[@]}"; do
     IFS='|' read -r s g p <<< "${entry}"
     echo "    GPU ${g}  port ${p}  ←  ${s#scripts/}"
 done
 
 # ---------------------------------------------------------------------------
-# Launch all jobs in the background, each with its own dedicated port
+# Run jobs one at a time — wait for each to finish before starting the next
 # ---------------------------------------------------------------------------
-PIDS=()
+FAILED=()
 SCRIPTS=()
 LOG_FILES=()
+idx=0
 
 for entry in "${JOBS[@]}"; do
     IFS='|' read -r s g p <<< "${entry}"
     rel="${s#scripts/}"
     log_file="${LOG_DIR}/${rel%.sh}.log"
     mkdir -p "$(dirname "${log_file}")"
-
-    log "▶ GPU ${g} port ${p}: ${rel}  →  ${log_file}"
-    # MASTER_PORT env var is consumed by the script's:
-    #   MASTER_PORT="${MASTER_PORT:-66$(($RANDOM%90+10))}"
-    MASTER_PORT="${p}" bash -o pipefail "${s}" "${g}" 2>&1 | tee "${log_file}" &
-    PIDS+=($!)
     SCRIPTS+=("${rel}")
     LOG_FILES+=("${log_file}")
-done
 
-log "All ${#PIDS[@]} jobs launched — waiting for completion..."
-
-# ---------------------------------------------------------------------------
-# Wait for every job and collect failures
-# ---------------------------------------------------------------------------
-FAILED=()
-for i in "${!PIDS[@]}"; do
-    wait "${PIDS[$i]}"
+    log "▶ [$(( idx+1 ))/${#JOBS[@]}] GPU ${g} port ${p}: ${rel}  →  ${log_file}"
+    MASTER_PORT="${p}" bash -o pipefail "${s}" "${g}" 2>&1 | tee "${log_file}"
     rc=$?
     if [ $rc -eq 0 ]; then
-        log "✓ done : ${SCRIPTS[$i]}"
+        log "✓ done : ${rel}"
     else
-        log "✗ FAILED: ${SCRIPTS[$i]} (exit=${rc}, see ${LOG_FILES[$i]})"
-        FAILED+=("${SCRIPTS[$i]} (exit=${rc})")
+        log "✗ FAILED: ${rel} (exit=${rc}, see ${log_file})"
+        FAILED+=("${rel} (exit=${rc})")
     fi
+    (( idx++ )) || true
 done
 
 # ---------------------------------------------------------------------------
