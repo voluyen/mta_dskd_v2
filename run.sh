@@ -41,45 +41,58 @@ export NCCL_P2P_DISABLE=1
 # Adjust GPU IDs to match your server's available devices (here: 3, 4, 5).
 # ---------------------------------------------------------------------------
 declare -a JOBS=(
-    "scripts/dolly/gpt2-340M/run_dskdv2_eta.sh|4|6700"
-    "scripts/dolly/gpt2-1.5B/run_dskdv2_eta.sh|4|6710"
-    "scripts/dolly/opt-2.7B/run_dskdv2_eta.sh|4|6720"
-    "scripts/dolly/tinyllama-1.1B/run_dskdv2_eta.sh|4|6730"
+    "scripts/dolly/gpt2-340M/run_dskdv2_eta.sh|2|6700"
+    "scripts/dolly/tinyllama-1.1B/run_dskdv2_eta.sh|3|6710"
+    "scripts/dolly/gpt2-1.5B/run_dskdv2_eta.sh|2|6720"
+    "scripts/dolly/opt-2.7B/run_dskdv2_eta.sh|3|6730"
 )
 
-log "Launching ${#JOBS[@]} jobs sequentially:"
+log "Launching ${#JOBS[@]} jobs in pairs (2 GPUs × 2 rounds):"
 for entry in "${JOBS[@]}"; do
     IFS='|' read -r s g p <<< "${entry}"
     echo "    GPU ${g}  port ${p}  ←  ${s#scripts/}"
 done
 
 # ---------------------------------------------------------------------------
-# Run jobs one at a time — wait for each to finish before starting the next
+# Run 2 jobs at a time (one per GPU), wait for the pair, then start the next
 # ---------------------------------------------------------------------------
 FAILED=()
-SCRIPTS=()
-LOG_FILES=()
-idx=0
+total=${#JOBS[@]}
 
-for entry in "${JOBS[@]}"; do
-    IFS='|' read -r s g p <<< "${entry}"
-    rel="${s#scripts/}"
-    log_file="${LOG_DIR}/${rel%.sh}.log"
-    mkdir -p "$(dirname "${log_file}")"
-    SCRIPTS+=("${rel}")
-    LOG_FILES+=("${log_file}")
+run_pair() {
+    local i=$1
+    local entry1="${JOBS[$i]}"
+    local entry2="${JOBS[$((i+1))]}"
+    local pair_pids=() pair_rels=() pair_logs=()
 
-    log "▶ [$(( idx+1 ))/${#JOBS[@]}] GPU ${g} port ${p}: ${rel}  →  ${log_file}"
-    MASTER_PORT="${p}" bash -o pipefail "${s}" "${g}" 2>&1 | tee "${log_file}"
-    rc=$?
-    if [ $rc -eq 0 ]; then
-        log "✓ done : ${rel}"
-    else
-        log "✗ FAILED: ${rel} (exit=${rc}, see ${log_file})"
-        FAILED+=("${rel} (exit=${rc})")
-    fi
-    (( idx++ )) || true
-done
+    for entry in "${entry1}" "${entry2}"; do
+        IFS='|' read -r s g p <<< "${entry}"
+        local rel="${s#scripts/}"
+        local log_file="${LOG_DIR}/${rel%.sh}.log"
+        mkdir -p "$(dirname "${log_file}")"
+        pair_rels+=("${rel}")
+        pair_logs+=("${log_file}")
+        log "▶ GPU ${g} port ${p}: ${rel}  →  ${log_file}"
+        MASTER_PORT="${p}" bash -o pipefail "${s}" "${g}" 2>&1 | tee "${log_file}" &
+        pair_pids+=($!)
+    done
+
+    for j in 0 1; do
+        wait "${pair_pids[$j]}"
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            log "✓ done : ${pair_rels[$j]}"
+        else
+            log "✗ FAILED: ${pair_rels[$j]} (exit=${rc}, see ${pair_logs[$j]})"
+            FAILED+=("${pair_rels[$j]} (exit=${rc})")
+        fi
+    done
+}
+
+log "=== Pair 1/2 (GPU 2 + GPU 3) ==="
+run_pair 0
+log "=== Pair 2/2 (GPU 2 + GPU 3) ==="
+run_pair 2
 
 # ---------------------------------------------------------------------------
 # Summary
