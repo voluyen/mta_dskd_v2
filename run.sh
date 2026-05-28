@@ -8,29 +8,17 @@ mkdir -p "${LOG_DIR}"
 log() { echo -e "\n[run.sh] $*"; }
 
 # ---------------------------------------------------------------------------
-# Conda environment setup
+# Python venv setup
 # ---------------------------------------------------------------------------
-ENV_NAME="${ENV_NAME:-mta_dskd}"
-PY_VERSION="${PY_VERSION:-3.10}"
+ENV_DIR="${ENV_DIR:-env}"
 
-if command -v conda >/dev/null 2>&1; then
-    log "conda detected: $(conda --version)"
-    # Make `conda activate` usable from this non-interactive shell.
-    CONDA_BASE="$(conda info --base)"
-    # shellcheck disable=SC1091
-    source "${CONDA_BASE}/etc/profile.d/conda.sh"
-
-    if conda env list | awk '{print $1}' | grep -qx "${ENV_NAME}"; then
-        log "conda env '${ENV_NAME}' already exists — reusing"
-    else
-        log "creating conda env '${ENV_NAME}' (python=${PY_VERSION})"
-        conda create -y -n "${ENV_NAME}" "python=${PY_VERSION}"
-    fi
-    conda activate "${ENV_NAME}"
-    log "active python: $(which python) ($(python --version 2>&1))"
-else
-    log "conda not found — skipping env setup, using current python"
+if [ ! -d "${ENV_DIR}" ]; then
+    log "creating venv at '${ENV_DIR}'"
+    python -m venv "${ENV_DIR}"
 fi
+# shellcheck disable=SC1091
+source "${ENV_DIR}/bin/activate"
+log "active python: $(which python) ($(python --version 2>&1))"
 
 # Install dependencies (if not already done).
 bash install.sh
