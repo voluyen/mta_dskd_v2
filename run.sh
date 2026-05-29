@@ -61,7 +61,7 @@ declare -a JOBS=(
     # --- Main experiments ---
     "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh|1|6730"       # gpt2-base  → Qwen1.5   ~6–7  GB
     "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh|2|6740"       # gpt2-medium → Qwen1.5  ~10–11 GB
-    "scripts/dolly/tinyllama-1.1B/run_mta_dskdv2_eta.sh|3|6750"  # TinyLlama  → Mistral-7B ~20–22 GB
+    "scripts/dolly/tinyllamA-1.1B/run_mta_dskdv2_eta.sh|3|6750"  # TinyLlama  → Mistral-7B ~20–22 GB
 )
 
 log "Launching ${#JOBS[@]} jobs simultaneously:"
