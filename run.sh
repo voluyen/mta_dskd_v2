@@ -20,7 +20,6 @@ fi
 source "${ENV_DIR}/bin/activate"
 log "active python: $(which python) ($(python --version 2>&1))"
 
-# Install dependencies (if not already done).
 bash install.sh
 bash download_model.sh
 
@@ -35,64 +34,74 @@ export NCCL_P2P_DISABLE=1
 
 # ---------------------------------------------------------------------------
 # Job list: "script_path|gpu_id|master_port"
-# - gpu_id    : passed as $1 to each script → overrides its built-in GPUS=()
-# - master_port: injected via MASTER_PORT env var (each script respects
-#               MASTER_PORT="${MASTER_PORT:-<random>}" so ports never collide)
-# Adjust GPU IDs to match your server's available devices (here: 3, 4, 5).
+#
+# VRAM estimates (single GPU, per job):
+#   gpt2-base (120M bf16) + Qwen1.5-1.8B (fp16 frozen)      →  ~6–7  GB
+#     • weights  : 240 MB (student) + 3 600 MB (teacher)
+#     • grad+optim: 1 440 MB (Adam fp32, student only)
+#     • activations: ~750 MB (batch=16, seq=256, 12 layers)
+#
+#   gpt2-medium (340M bf16) + Qwen1.5-1.8B (fp16 frozen)    → ~10–11 GB
+#     • weights  : 680 MB (student) + 3 600 MB (teacher)
+#     • grad+optim: 4 080 MB (Adam fp32, student only)
+#     • activations: ~800 MB (batch=16, seq=256, 24 layers)
+#
+#   TinyLlama-1.1B + LoRA r=256 (bf16) + Mistral-7B (fp16)  → ~20–22 GB
+#     • weights  : 2 200 MB (frozen base) + ~184 MB (LoRA) + 14 000 MB (teacher)
+#     • grad+optim: ~1 472 MB (LoRA Adam fp32)
+#     • activations: ~2 000 MB (batch=16, seq=256, 22+32 layers)
+#
+# Adjust GPU IDs to match your server's available devices.
 # ---------------------------------------------------------------------------
 declare -a JOBS=(
-    "scripts/dolly/gpt2-340M/run_dskdv2_eta.sh|2|6700"
-    "scripts/dolly/tinyllama-1.1B/run_dskdv2_eta.sh|3|6710"
-    "scripts/dolly/gpt2-1.5B/run_dskdv2_eta.sh|2|6720"
-    "scripts/dolly/opt-2.7B/run_dskdv2_eta.sh|3|6730"
+    # --- Ablation studies (gpt2-base → Qwen1.5-1.8B, ~6–7 GB each) ---
+    "scripts/dolly/ablation/run_mta_dskdv2_phrase_level.sh|0|6700"
+    "scripts/dolly/ablation/run_mta_dskdv2_wo_weight.sh|0|6710"
+    "scripts/dolly/ablation/run_mta_dskdv2_word_level.sh|1|6720"
+    # --- Main experiments ---
+    "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh|1|6730"       # gpt2-base  → Qwen1.5   ~6–7  GB
+    "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh|2|6740"       # gpt2-medium → Qwen1.5  ~10–11 GB
+    "scripts/dolly/tinyllama-1.1B/run_mta_dskdv2_eta.sh|3|6750"  # TinyLlama  → Mistral-7B ~20–22 GB
 )
 
-log "Launching ${#JOBS[@]} jobs in pairs (2 GPUs × 2 rounds):"
+log "Launching ${#JOBS[@]} jobs simultaneously:"
 for entry in "${JOBS[@]}"; do
     IFS='|' read -r s g p <<< "${entry}"
     echo "    GPU ${g}  port ${p}  ←  ${s#scripts/}"
 done
 
 # ---------------------------------------------------------------------------
-# Run 2 jobs at a time (one per GPU), wait for the pair, then start the next
+# Launch all jobs in parallel
 # ---------------------------------------------------------------------------
+PIDS=()
+RELS=()
+LOGS=()
 FAILED=()
-total=${#JOBS[@]}
 
-run_pair() {
-    local i=$1
-    local entry1="${JOBS[$i]}"
-    local entry2="${JOBS[$((i+1))]}"
-    local pair_pids=() pair_rels=() pair_logs=()
+for entry in "${JOBS[@]}"; do
+    IFS='|' read -r s g p <<< "${entry}"
+    rel="${s#scripts/}"
+    log_file="${LOG_DIR}/${rel%.sh}.log"
+    mkdir -p "$(dirname "${log_file}")"
+    RELS+=("${rel}")
+    LOGS+=("${log_file}")
+    log "▶ GPU ${g} port ${p}: ${rel}  →  ${log_file}"
+    ( MASTER_PORT="${p}" bash "${s}" "${g}" 2>&1 | tee "${log_file}" ) &
+    PIDS+=($!)
+done
 
-    for entry in "${entry1}" "${entry2}"; do
-        IFS='|' read -r s g p <<< "${entry}"
-        local rel="${s#scripts/}"
-        local log_file="${LOG_DIR}/${rel%.sh}.log"
-        mkdir -p "$(dirname "${log_file}")"
-        pair_rels+=("${rel}")
-        pair_logs+=("${log_file}")
-        log "▶ GPU ${g} port ${p}: ${rel}  →  ${log_file}"
-        MASTER_PORT="${p}" bash -o pipefail "${s}" "${g}" 2>&1 | tee "${log_file}" &
-        pair_pids+=($!)
-    done
+log "All ${#PIDS[@]} jobs launched — waiting for completion..."
 
-    for j in 0 1; do
-        wait "${pair_pids[$j]}"
-        rc=$?
-        if [ $rc -eq 0 ]; then
-            log "✓ done : ${pair_rels[$j]}"
-        else
-            log "✗ FAILED: ${pair_rels[$j]} (exit=${rc}, see ${pair_logs[$j]})"
-            FAILED+=("${pair_rels[$j]} (exit=${rc})")
-        fi
-    done
-}
-
-log "=== Pair 1/2 (GPU 2 + GPU 3) ==="
-run_pair 0
-log "=== Pair 2/2 (GPU 2 + GPU 3) ==="
-run_pair 2
+for i in "${!PIDS[@]}"; do
+    wait "${PIDS[$i]}"
+    rc=$?
+    if [ $rc -eq 0 ]; then
+        log "✓ done : ${RELS[$i]}"
+    else
+        log "✗ FAILED: ${RELS[$i]} (exit=${rc}, see ${LOGS[$i]})"
+        FAILED+=("${RELS[$i]} (exit=${rc})")
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # Summary
@@ -106,3 +115,4 @@ if [ ${#FAILED[@]} -eq 0 ]; then
     log "All jobs completed successfully ✓"
 fi
 log "Logs in    : ${LOG_DIR}/"
+[ ${#FAILED[@]} -eq 0 ] || exit 1
