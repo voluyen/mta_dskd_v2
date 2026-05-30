@@ -99,7 +99,7 @@ OPTS+=" --peft-lora-dropout ${LORA_DROPOUT}"
 # OPTS+=" --projector-path ${PROJECTOR_PATH}"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
-OPTS+=" --max-prompt-length 256"
+OPTS+=" --max-prompt-length 128"
 # runtime
 OPTS+=" --do-train"
 OPTS+=" --do-valid"

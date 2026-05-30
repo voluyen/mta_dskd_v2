@@ -1,10 +1,9 @@
 #! /bin/bash
-# GPUS=(0)
-GPUS=(2 3)
+GPUS=(6)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
-MASTER_PORT=66$(($RANDOM%90+10))
+MASTER_PORT="${MASTER_PORT:-66$(($RANDOM%90+10))}"
 NNODES=1
 NODE_RANK=0
 GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print NF}')
@@ -28,11 +27,11 @@ DATA_DIR="${BASE_PATH}/data/dolly/"
 # task
 TASK="dskd_v2_eta"
 # hp
-BATCH_SIZE=4
+BATCH_SIZE=8
 LR=0.0005
-GRAD_ACC=1
-EVAL_BATCH_SIZE=128
-EPOCH=20
+GRAD_ACC=4
+EVAL_BATCH_SIZE=32
+EPOCH=10
 KD_RATE=0.5
 KD_TEMP=2.0
 # distiller
@@ -46,7 +45,7 @@ CRITERION="dual_space_kd_v2_with_eta"
 KD_OBJ="forward_kl"   # [forward_kl, reverse_kl, js_divergence, skewed_forward_kl, skewed_reverse_kl, adaptive_kl]
 CONFIG="${KD_OBJ}-${PRECISION}"
 SETTING="${CONFIG}__teacher_${TEACHER_MODEL_NAME}__kd^rate${KD_RATE}__kd^temp${KD_TEMP}__epoch${EPOCH}__bsz${BATCH_SIZE}x${GRAD_ACC}x${GPUS_PER_NODE}x${NNODES}_$((BATCH_SIZE * GRAD_ACC * GPUS_PER_NODE * NNODES))__lr${LR}__proj^lr${PROJECTOR_LR}"
-SAVE_PATH="${BASE_PATH}/outputs/${CKPT_TYPE}/${CKPT_NAME}/${TASK}/${SETTING}"
+SAVE_PATH="${BASE_PATH}/outputs/3005_dskd/${CKPT_TYPE}/${CKPT_NAME}/${TASK}/${SETTING}"
 SAVE_BEST_N_CKPTS=5
 # seed
 SEED=10

@@ -36,32 +36,20 @@ export NCCL_P2P_DISABLE=1
 # Job list: "script_path|gpu_id|master_port"
 #
 # VRAM estimates (single GPU, per job):
-#   gpt2-base (120M bf16) + Qwen1.5-1.8B (fp16 frozen)      →  ~6–7  GB
-#     • weights  : 240 MB (student) + 3 600 MB (teacher)
-#     • grad+optim: 1 440 MB (Adam fp32, student only)
-#     • activations: ~750 MB (batch=16, seq=256, 12 layers)
+#   gpt2-base  (120M bf16) + Qwen1.5-1.8B  (fp16 frozen)     →  ~6–7  GB  GPU 6
+#   gpt2-medium(340M bf16) + Qwen1.5-1.8B  (fp16 frozen)     → ~10–11 GB  GPU 6 (shared)
+#   TinyLlama-1.1B + LoRA r=256 (bf16) + Mistral-7B  (fp16)  → ~20–22 GB  GPU 4
+#   opt-2.7B   + LoRA r=256 (bf16) + Qwen2.5-7B (fp16)       → ~22–26 GB  GPU 5
+#   gpt2-xl (1.5B) + LoRA r=256 (bf16) + Qwen2.5-7B (fp16)   → ~20–22 GB  GPU 7
 #
-#   gpt2-medium (340M bf16) + Qwen1.5-1.8B (fp16 frozen)    → ~10–11 GB
-#     • weights  : 680 MB (student) + 3 600 MB (teacher)
-#     • grad+optim: 4 080 MB (Adam fp32, student only)
-#     • activations: ~800 MB (batch=16, seq=256, 24 layers)
-#
-#   TinyLlama-1.1B + LoRA r=256 (bf16) + Mistral-7B (fp16)  → ~20–22 GB
-#     • weights  : 2 200 MB (frozen base) + ~184 MB (LoRA) + 14 000 MB (teacher)
-#     • grad+optim: ~1 472 MB (LoRA Adam fp32)
-#     • activations: ~2 000 MB (batch=16, seq=256, 22+32 layers)
-#
-# Adjust GPU IDs to match your server's available devices.
+# NOTE: gpt2-120M and gpt2-340M share GPU 6 — ensure sufficient VRAM (~17 GB combined).
 # ---------------------------------------------------------------------------
 declare -a JOBS=(
-    # --- Ablation studies (gpt2-base → Qwen1.5-1.8B, ~6–7 GB each) ---
-    "scripts/dolly/ablation/run_mta_dskdv2_phrase_level.sh|0|6700"
-    "scripts/dolly/ablation/run_mta_dskdv2_wo_weight.sh|0|6710"
-    "scripts/dolly/ablation/run_mta_dskdv2_word_level.sh|1|6720"
-    # --- Main experiments ---
-    "scripts/dolly/gpt2-120M/run_mta_dskdv2_eta.sh|1|6730"       # gpt2-base  → Qwen1.5   ~6–7  GB
-    "scripts/dolly/gpt2-340M/run_mta_dskdv2_eta.sh|2|6740"       # gpt2-medium → Qwen1.5  ~10–11 GB
-    "scripts/dolly/tinyllamA-1.1B/run_mta_dskdv2_eta.sh|3|6750"  # TinyLlama  → Mistral-7B ~20–22 GB
+    "scripts/dolly/tinyllamA-1.1B/run_dskdv2_eta.sh|4|6700"   # TinyLlama-1.1B → Mistral-7B  ~20–22 GB
+    "scripts/dolly/opt-2.7B/run_dskdv2_eta.sh|5|6710"          # opt-2.7B       → Qwen2.5-7B  ~22–26 GB
+    "scripts/dolly/gpt2-340M/run_dskdv2_eta.sh|6|6720"         # gpt2-medium    → Qwen1.5-1.8B ~10–11 GB
+    "scripts/dolly/gpt2-120M/run_dskdv2_eta.sh|6|6730"         # gpt2-base      → Qwen1.5-1.8B  ~6–7  GB
+    "scripts/dolly/gpt2-1.5B/run_dskdv2_eta.sh|7|6740"         # gpt2-xl        → Qwen2.5-7B  ~20–22 GB
 )
 
 log "Launching ${#JOBS[@]} jobs simultaneously:"
