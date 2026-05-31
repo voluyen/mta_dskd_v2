@@ -1,5 +1,5 @@
 #! /bin/bash
-GPUS=(5)
+GPUS=(0)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
@@ -15,7 +15,7 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --master_port $MASTER_PORT"
 
 # model
-BASE_PATH=.
+BASE_PATH=$(realpath .)
 CKPT_TYPE="tinyllama"
 CKPT_NAME="tinyllama-1.1B"
 CKPT_PATH="${BASE_PATH}/model_hub/${CKPT_TYPE}/${CKPT_NAME}"
@@ -42,7 +42,7 @@ LORA_R=256
 LORA_ALPHA=8
 LORA_DROPOUT=0.1
 # length
-MAX_LENGTH=256
+MAX_LENGTH=512
 # runtime
 PRECISION="bf16"
 CRITERION="dual_space_kd_v2_with_eta"
@@ -99,7 +99,7 @@ OPTS+=" --peft-lora-dropout ${LORA_DROPOUT}"
 # OPTS+=" --projector-path ${PROJECTOR_PATH}"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
-OPTS+=" --max-prompt-length 128"
+OPTS+=" --max-prompt-length 256"
 # runtime
 OPTS+=" --do-train"
 OPTS+=" --do-valid"

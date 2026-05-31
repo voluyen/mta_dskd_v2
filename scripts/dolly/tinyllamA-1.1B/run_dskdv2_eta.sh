@@ -1,5 +1,5 @@
 #! /bin/bash
-GPUS=(4)
+GPUS=(0)
 export CUDA_VISIBLE_DEVICES=${1-$(IFS=,; echo "${GPUS[*]}")}
 
 MASTER_ADDR=localhost
@@ -15,9 +15,9 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --master_port $MASTER_PORT"
 
 # model
-BASE_PATH=.
+BASE_PATH=$(realpath .)
 CKPT_TYPE="tinyllama"
-CKPT_NAME="tinyllama_v1.1"
+CKPT_NAME="tinyllama-1.1B"
 CKPT_PATH="${BASE_PATH}/model_hub/${CKPT_TYPE}/${CKPT_NAME}"
 TEACHER_MODEL_TYPE="mistral"
 TEACHER_MODEL_NAME="mistral7b"

@@ -45,11 +45,8 @@ export NCCL_P2P_DISABLE=1
 # NOTE: gpt2-120M and gpt2-340M share GPU 6 — ensure sufficient VRAM (~17 GB combined).
 # ---------------------------------------------------------------------------
 declare -a JOBS=(
-    "scripts/dolly/tinyllamA-1.1B/run_dskdv2_eta.sh|4|6700"   # TinyLlama-1.1B → Mistral-7B  ~20–22 GB
-    "scripts/dolly/opt-2.7B/run_dskdv2_eta.sh|5|6710"          # opt-2.7B       → Qwen2.5-7B  ~22–26 GB
-    "scripts/dolly/gpt2-340M/run_dskdv2_eta.sh|6|6720"         # gpt2-medium    → Qwen1.5-1.8B ~10–11 GB
-    "scripts/dolly/gpt2-120M/run_dskdv2_eta.sh|6|6730"         # gpt2-base      → Qwen1.5-1.8B  ~6–7  GB
-    "scripts/dolly/gpt2-1.5B/run_dskdv2_eta.sh|7|6740"         # gpt2-xl        → Qwen2.5-7B  ~20–22 GB
+    "scripts/dolly/tinyllamA-1.1B/run_dskdv2_eta.sh|0|6700"       # TinyLlama-1.1B baseline → Mistral-7B  ~20–22 GB
+    "scripts/dolly/tinyllamA-1.1B/run_mta_dskdv2_eta.sh|1|6750"   # TinyLlama-1.1B MTA     → Mistral-7B  ~20–22 GB
 )
 
 log "Launching ${#JOBS[@]} jobs simultaneously:"
